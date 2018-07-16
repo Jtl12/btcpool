@@ -1,11 +1,14 @@
 #include "jobrepositorybytom.h"
 #include <glog/logging.h>
 #include "utilities_js.hpp"
+#include "bytom/bh_shared.h"
 
 /*
     JobRepository is called once every few seconds. So it doesn't really useful to put it on separate thread.
     Less thread can make the code readability better and easier to debug.
 */
+
+using namespace std;
 
 namespace BytomStratum
 {
@@ -26,11 +29,13 @@ JobRepositoryBytom_New *FindJobRepository(uint64_t repoJobStaringIdx)
     return iter->second.get();
 }
 
-void UnserializeStratumFromJson(JsonNode msgJson, StratumJobBytom_New *job)
+void UnserializeJobFromJson(JsonNode msgJson, StratumJobBytom_New *job)
 {
-  string hHash = msgJson["hHash"].str();
-  string sHash = msgJson["sHash"].str();
+    string hHash = msgJson["hHash"].str();
+    string sHash = msgJson["sHash"].str();
 
+    GoSlice text = {(void *)hHash.data(), (int)hHash.length(), (int)hHash.length()};
+    DecodeBlockHeader_return bh = DecodeBlockHeader(text);
 }
 
 void ConsumeStratumJob(rd_kafka_message_t *rkmessage)
@@ -62,13 +67,13 @@ void ConsumeStratumJob(rd_kafka_message_t *rkmessage)
     {
         return;
     }
-    if (j["created_at_ts"].type() != Utilities::JS::type::Int ||
-        j["jobId"].type() != Utilities::JS::type::Int ||
-        j["sHash"].type() != Utilities::JS::type::Str ||
-        j["hHash"].type() != Utilities::JS::type::Str)
+    if (msgJson["created_at_ts"].type() != Utilities::JS::type::Int ||
+        msgJson["jobId"].type() != Utilities::JS::type::Int ||
+        msgJson["sHash"].type() != Utilities::JS::type::Str ||
+        msgJson["hHash"].type() != Utilities::JS::type::Str)
     {
-        LOG(ERROR) << "parse bytom stratum job failure: " << s;
-        return false;
+        LOG(ERROR) << "parse bytom stratum job failure: " << msgString;
+        return;
     }
 
     uint64_t jobId = msgJson["jobId"].uint64();
